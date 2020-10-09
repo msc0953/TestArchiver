@@ -9,11 +9,16 @@ try:
 except ImportError:
     psycopg2 = None
 
+try:
+    import sqlalchemy
+except ImportError:
+    sqlalchemy = None
+
 from . import version, configs
 
 
 SCHEMA_UPDATES = (
-    #(update_id, minor, file)
+    # (update_id, minor, file)
     (1, False, '0001-schema_update_table_and_log_message_index.sql'),
     (2, True, '0002-execution_paths.sql'),
     # Updates are appended to the end
@@ -29,6 +34,8 @@ def get_connection_and_check_schema(config):
             raise Exception("--host or --user options should not be used "
                             "with default sqlite3 database engine")
         connection = SQLiteDatabase(config)
+    elif config.db_engine in ('mssql', 'microsoft sql server'):
+        connection = SqlServerDatabase(config)
     if connection:
         connection.check_and_update_schema()
         return connection
@@ -437,13 +444,62 @@ class SQLiteDatabase(BaseDatabase):
         return None
 
 
+class SqlServerDatabase(BaseDatabase):
+
+    def _db_engine_identifier(self):
+        return 'mssql'
+
+    def _connect(self, db_instance):
+        if not sqlalchemy:
+            raise Exception("ERROR: Trying to use Microsoft SQL Server database but sqlalchemy is not installed! "
+                            "Try to install sqlalchemy module: 'pip install sqlalchemy'")
+
+        connection_str = r"mssql+pyodbc://{0}:{1}@{2}\{3}/{4}?driver=SQL+Server".format(self.user, self.password,
+                                                                                        self.host, db_instance,
+                                                                                        self.database)
+        self._connection = sqlalchemy.create_engine(connection_str)
+
+    def _initialize_schema(self):
+        pass
+
+    def _run_script(self, script_file):
+        pass
+
+    def _handle_values(self, values):
+        pass
+
+    def _fetch_id(self, table, data, key_fields):
+        pass
+
+    def return_id_or_insert_and_return_id(self, table, data, key_fields):
+        pass
+
+    def insert_and_return_id(self, table, data, key_fields=None):
+        pass
+
+    def insert_or_ignore(self, table, data, key_fields=None):
+        pass
+
+    def update(self, table, data, key_data):
+        pass
+
+    def insert(self, table, data):
+        pass
+
+    def max_value(self, table, column, where_data=None):
+        pass
+
+    def fetch_one_value(self, table, column, where_data=None):
+        pass
+
+
 def argument_parser():
     parser = configs.base_argument_parser('Initialize and update test archive schema.')
     return parser
 
+
 def main():
     config, _ = configs.configuration(argument_parser)
-
     get_connection_and_check_schema(config)
 
 
